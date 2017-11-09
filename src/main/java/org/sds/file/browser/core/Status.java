@@ -13,21 +13,18 @@ public class Status {
 	
 	public static final Status OK_STATUS = new Status(OK, "OK");
 	
-	private int severity = OK;
-	private String message;
-	private Throwable exception = null;
+	private final int severity;
+	private final String message;
+	private final Throwable exception;
 	
 	public Status(int severity, String message, Throwable exception) {
-		super();
 		this.severity = severity;
 		this.message = message;
 		this.exception = exception;
 	}
 
 	public Status(int severity, String message) {
-		super();
-		this.severity = severity;
-		this.message = message;
+		this(severity, message, null);
 	}
 
 	public int getSeverity() {

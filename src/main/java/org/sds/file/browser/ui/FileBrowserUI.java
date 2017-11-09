@@ -10,9 +10,9 @@ import static org.sds.file.browser.core.Messages.MSG_MENU_HELP_ABOUT;
 import static org.sds.file.browser.core.Messages.MSG_MENU_HELP_TITLE;
 
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.custom.BusyIndicator;
 import org.eclipse.swt.custom.CTabFolder;
 import org.eclipse.swt.custom.CTabFolder2Adapter;
 import org.eclipse.swt.custom.CTabFolderEvent;
@@ -34,6 +34,7 @@ import org.eclipse.swt.widgets.Monitor;
 import org.eclipse.swt.widgets.Shell;
 import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
+import org.sds.file.browser.core.CommonExecutorService;
 import org.sds.file.browser.core.ISession;
 import org.sds.file.browser.core.Messages;
 import org.sds.file.browser.core.Status;
@@ -44,10 +45,9 @@ import org.sds.file.browser.core.remote.ClientHandlerBuilder;
 import org.sds.file.browser.core.remote.IClientHandler;
 import org.sds.file.browser.core.remote.RemoteSession;
 import org.sds.file.browser.ui.ImageRegistry.Images;
-import org.sds.file.browser.ui.local.LocalSessionLabelProvider;
-import org.sds.file.browser.ui.preview.PreviewExecutor;
+import org.sds.file.browser.ui.local.LocalSessionViewerInput;
 import org.sds.file.browser.ui.remote.ClientConfigurationsDialog;
-import org.sds.file.browser.ui.remote.RemoteSessionLabelProvider;
+import org.sds.file.browser.ui.remote.RemoteSessionViewerInput;
 
 /**
  * SImple file browser main UI class.
@@ -92,7 +92,7 @@ public final class FileBrowserUI {
 			session.shutdown();
 		}
 		ImageRegistry.dispose();
-		PreviewExecutor.INSTANCE.shutdown();
+		CommonExecutorService.shutdown();
 	}
 
 	private void createContents() {
@@ -241,48 +241,51 @@ public final class FileBrowserUI {
 	}
 
 	private void openLocalSession() {
-		ISession session = new LocalSession();
-		session.startup();
-
-		final CTabItem sessionViewerTabItem = new CTabItem(sessionViewersContainer, SWT.CLOSE);
-
-		sessionViewerTabItem.setText(LocalSession.LOCAL_SESSION_NAME);
-		sessionViewerTabItem.setImage(ImageRegistry.getImage(Images.IMG_LOCAL_SESSION));
-
-		SessionViewer fileSessionViewer = new SessionViewer(sessionViewersContainer, session,
-				new LocalSessionLabelProvider());
-
-		sessionViewerTabItem.setControl(fileSessionViewer);
-		sessionViewersContainer.setSelection(sessionViewerTabItem);
+		CompletableFuture<ISessionViewerInput> openSessionFuture = CompletableFuture.supplyAsync(() -> {
+			ISession session = new LocalSession();
+			session.startup();
+			return new LocalSessionViewerInput(LocalSession.LOCAL_SESSION_NAME, session);
+		}, CommonExecutorService.getExecutor());
+		openSessionFuture.thenAccept(viewerInput -> {
+			shell.getDisplay().asyncExec(()-> {
+				openSessionViewer(viewerInput);
+			});
+		});
 	}
 
 	private void openRemoteSession(final ClientConfiguration configuration) {
-		ClientHandlerBuilder clientHandlerBuilder = new ClientHandlerBuilder();
-		IClientHandler clientHandler = clientHandlerBuilder.build(configuration);
-		ISession session = new RemoteSession(clientHandler);
-		final Status[] sessionStatus = new Status[1];
-		// Should be done in a better way with progress reporting etc.
-		BusyIndicator.showWhile(shell.getDisplay(), () -> {
+		CompletableFuture<ISessionViewerInput> openSessionFuture = CompletableFuture.supplyAsync(() -> {
+			ClientHandlerBuilder clientHandlerBuilder = new ClientHandlerBuilder();
+			IClientHandler clientHandler = clientHandlerBuilder.build(configuration);
+			ISession session = new RemoteSession(clientHandler);
 			Status connectionStatus = session.startup();
-			sessionStatus[0] = connectionStatus;
 			if (!connectionStatus.isOK()) {
-				MessageBox messageBox = new MessageBox(shell, SWT.ICON_ERROR);
-				messageBox.setText("FTP Session Error");
-				messageBox.setMessage(connectionStatus.getMessage());
-				messageBox.open();
-				return;
+				shell.getDisplay().asyncExec(()-> {
+					MessageBox messageBox = new MessageBox(shell, SWT.ICON_ERROR);
+					messageBox.setText("FTP Session Error");
+					messageBox.setMessage(connectionStatus.getMessage());
+					messageBox.open();
+				});
+				return null;
 			}
+			return new RemoteSessionViewerInput(configuration.getName(), session);
+		}, CommonExecutorService.getExecutor());
+		openSessionFuture.thenAccept(viewerInput -> {
+			shell.getDisplay().asyncExec(()-> {
+				openSessionViewer(viewerInput);
+			});
 		});
-		if (!sessionStatus[0].isOK()) {
+	}
+
+	private void openSessionViewer(ISessionViewerInput input) {
+		if (input == null) {
 			return;
 		}
 		final CTabItem sessionViewerTabItem = new CTabItem(sessionViewersContainer, SWT.CLOSE);
-
-		sessionViewerTabItem.setText(configuration.getName());
-		sessionViewerTabItem.setImage(ImageRegistry.getImage(Images.IMG_FTP_SESSION));
-
-		SessionViewer fileSessionViewer = new SessionViewer(sessionViewersContainer, session, new RemoteSessionLabelProvider());
-
+		sessionViewerTabItem.setText(input.getName());
+		sessionViewerTabItem.setImage(input.getImage());
+		SessionViewer fileSessionViewer = new SessionViewer(sessionViewersContainer, input.getSession(),
+				input.getLabelProvider());
 		sessionViewerTabItem.setControl(fileSessionViewer);
 		sessionViewersContainer.setSelection(sessionViewerTabItem);
 	}

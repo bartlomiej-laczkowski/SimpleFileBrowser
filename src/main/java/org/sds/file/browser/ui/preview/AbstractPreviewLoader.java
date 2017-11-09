@@ -19,11 +19,10 @@ import org.sds.file.browser.core.ISession;
  */
 abstract class AbstractPreviewLoader<T> {
 
-	protected Control control;
-	protected Composite composite;
+	private final Control control;
 
 	public AbstractPreviewLoader(Composite parent) {
-		composite = new Composite(parent, SWT.NONE);
+		Composite composite = new Composite(parent, SWT.NONE);
 		composite.setLayout(new FillLayout());
 		control = createControl(composite);
 		control.addPaintListener(new PaintListener() {

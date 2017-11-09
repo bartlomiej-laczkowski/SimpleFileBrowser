@@ -9,15 +9,15 @@ import static org.sds.file.browser.ui.ImageRegistry.Images.IMG_ARROW_UP;
 
 import java.nio.file.Path;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 import org.eclipse.swt.SWT;
-import org.eclipse.swt.custom.BusyIndicator;
 import org.eclipse.swt.custom.CLabel;
 import org.eclipse.swt.custom.SashForm;
+import org.eclipse.swt.custom.StackLayout;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.events.TreeAdapter;
@@ -28,7 +28,6 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.program.Program;
 import org.eclipse.swt.widgets.Composite;
-import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Event;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Listener;
@@ -39,11 +38,13 @@ import org.eclipse.swt.widgets.ToolBar;
 import org.eclipse.swt.widgets.ToolItem;
 import org.eclipse.swt.widgets.Tree;
 import org.eclipse.swt.widgets.TreeItem;
+import org.sds.file.browser.core.CommonExecutorService;
 import org.sds.file.browser.core.Comparators;
 import org.sds.file.browser.core.IContainer;
 import org.sds.file.browser.core.IFile;
 import org.sds.file.browser.core.ISession;
 import org.sds.file.browser.core.Messages;
+import org.sds.file.browser.ui.ImageRegistry.Images;
 import org.sds.file.browser.ui.preview.PreviewViewer;
 
 /**
@@ -51,22 +52,26 @@ import org.sds.file.browser.ui.preview.PreviewViewer;
  */
 class SessionViewer extends Composite {
 
+	private final ISession session;
+	private final ISessionLabelProvider labelProvider;
+	private final Map<IContainer, TreeItem> containerTreeItems;
 	private Tree containerTree;
-	private ISessionViewerLabelProvider labelProvider;
-	private Map<IContainer, TreeItem> containerTreeItems;
 	private Table contentsTable;
 	private CLabel labelLocation;
 	private ToolItem buttonLevelUp;
 	private PreviewViewer previewViewer;
-	private ISession session;
 	private Label totalCountLabel;
 	private Label selectedItemsLabel;
+	private StackLayout contentsStackLayout;
+	private Composite contentsStackComposite;
+	private Composite busyTableComposite;
+	private volatile boolean isBusyTable = false;
 
-	public SessionViewer(Composite parent, ISession session, ISessionViewerLabelProvider sessionLabelProvider) {
+	public SessionViewer(Composite parent, ISession session, ISessionLabelProvider sessionLabelProvider) {
 		super(parent, SWT.NONE);
 		this.session = session;
 		this.labelProvider = sessionLabelProvider;
-		containerTreeItems = new HashMap<>();
+		this.containerTreeItems = new HashMap<>();
 		createContents();
 		setData(session);
 		updateTree(session.getRoots());
@@ -109,7 +114,6 @@ class SessionViewer extends Composite {
 		createStructureSection(structureComposite);
 		createContentsSection(contentsComposite);
 		createStatusSection(statusComposite);
-
 	}
 
 	private void createStatusSection(Composite parent) {
@@ -206,6 +210,7 @@ class SessionViewer extends Composite {
 				IContainer container = (IContainer) contentsTable.getData();
 				Path parent = container.getPath().getParent();
 				if (parent != null) {
+					previewViewer.preview(null);
 					updateTable(session.getContainer(parent));
 				}
 			}
@@ -220,7 +225,11 @@ class SessionViewer extends Composite {
 
 		sashForm.setLayout(new FillLayout());
 
-		contentsTable = new Table(sashForm, SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL | SWT.MULTI | SWT.FULL_SELECTION);
+		contentsStackComposite = new Composite(sashForm, SWT.NONE);
+		contentsStackLayout = new StackLayout();
+		contentsStackComposite.setLayout(contentsStackLayout);
+		
+		contentsTable = new Table(contentsStackComposite, SWT.BORDER | SWT.V_SCROLL | SWT.H_SCROLL | SWT.MULTI | SWT.FULL_SELECTION);
 
 		TableColumn columnName = new TableColumn(contentsTable, SWT.NONE);
 		columnName.setText(Messages.get(MSG_TABLE_COLUMN_FILE_NAME));
@@ -256,6 +265,17 @@ class SessionViewer extends Composite {
 				}
 			}
 		});
+		
+		busyTableComposite = new Composite(contentsStackComposite, SWT.BORDER);
+		busyTableComposite.setLayout(new GridLayout());
+		busyTableComposite.setBackground(getDisplay().getSystemColor(SWT.COLOR_LIST_BACKGROUND));
+		busyTableComposite.setBackgroundMode(SWT.INHERIT_FORCE);
+		CLabel busyLabel = new CLabel(busyTableComposite, SWT.NONE);
+		busyLabel.setLayoutData(new GridData(SWT.CENTER, SWT.CENTER, true, true));
+		busyLabel.setEnabled(false);
+		busyLabel.setImage(ImageRegistry.getImage(Images.IMG_SANDGLASS));
+		
+		contentsStackLayout.topControl = contentsTable;
 		// Add file preview section
 		previewViewer = new PreviewViewer(sashForm, session);
 
@@ -263,34 +283,55 @@ class SessionViewer extends Composite {
 	}
 
 	private void treeExpandItem(final TreeItem treeItem) {
+
+		if (treeItem.getData() == null || treeItem.getItemCount() == 0) {
+			return;
+		}
+
 		treeItem.setExpanded(true);
 		IContainer folder = (IContainer) treeItem.getData();
 		treeItem.setImage(labelProvider.getImage(folder, true));
-		TreeItem[] items = treeItem.getItems();
-		for (int i = 0; i < items.length; i++) {
-			if (items[i].getData() != null)
-				return;
-			items[i].dispose();
+
+		// Check dummy item
+		TreeItem dummyItem = treeItem.getItem(0);
+		if (dummyItem.getData() == null) {
+			dummyItem.setImage(ImageRegistry.getImage(Images.IMG_SANDGLASS));
+		} else {
+			return;
 		}
-		BusyIndicator.showWhile(getDisplay(), () -> {
+
+		CompletableFuture<Map<IContainer, Boolean>> fillTreeItemFuture = CompletableFuture.supplyAsync(() -> {
 			List<IContainer> children = session.getChildren(folder);
-			Collections.sort(children, new Comparator<IContainer>() {
-				@Override
-				public int compare(IContainer o1, IContainer o2) {
-					return o1.getName().compareTo(o2.getName());
-				}
-			});
+			Collections.sort(children, new Comparators.ContainerNameComparator());
+			Map<IContainer, Boolean> containers = new HashMap<>();
 			for (IContainer child : children) {
-				TreeItem childItem = new TreeItem(treeItem, SWT.NONE);
-				childItem.setData(child);
-				childItem.setText(labelProvider.getText(child));
-				childItem.setImage(labelProvider.getImage(child, false));
-				containerTreeItems.put(child, childItem);
-				if (session.hasChildren(child)) {
-					new TreeItem(childItem, 0);
-				}
+				boolean hasChildren = session.hasChildren(child);
+				containers.put(child, hasChildren);
 			}
+			return containers;
+		}, CommonExecutorService.getExecutor());
+		fillTreeItemFuture.thenAccept(containers -> {
+			getDisplay().asyncExec(() -> {
+				treeItemFill(treeItem, containers);
+			});
 		});
+	}
+
+	private void treeItemFill(TreeItem treeItem, Map<IContainer, Boolean> containers) {
+		if (treeItem.isDisposed()) {
+			return;
+		}
+		treeItem.removeAll();
+		for (IContainer container : containers.keySet()) {
+			TreeItem childItem = new TreeItem(treeItem, SWT.NONE);
+			childItem.setData(container);
+			childItem.setText(labelProvider.getText(container));
+			childItem.setImage(labelProvider.getImage(container, false));
+			containerTreeItems.put(container, childItem);
+			if (containers.get(container)) {
+				new TreeItem(childItem, 0);
+			}
+		}
 	}
 
 	private void treeCollapseItem(final TreeItem treeItem) {
@@ -311,32 +352,52 @@ class SessionViewer extends Composite {
 	}
 
 	private void updateTable(final IContainer container) {
-		BusyIndicator.showWhile(getDisplay(), () -> {
+		if (container == null) {
+			return;
+		}
+		isBusyTable = true;
+		getDisplay().timerExec(100, ()-> {
+			if (!isBusyTable) {
+				return;
+			}
+			contentsStackLayout.topControl = busyTableComposite;
+			contentsStackComposite.layout();
+		});
+		CompletableFuture<List<IFile>> fillTableFuture = CompletableFuture.supplyAsync(() -> {
 			List<IFile> contents = session.getContents(container);
-			labelLocation.setText(container.getPath().toString());
-			buttonLevelUp.setEnabled(container.getPath().getParent() != null ? true : false);
-			contentsTable.setData(container);
 			Collections.sort(contents, new Comparators.FileNameKindComparator());
-			getDisplay().syncExec(() -> {
-				if (!contentsTable.isDisposed()) {
-					contentsTable.removeAll();
-				}
-				// guard against the shell being closed before this runs
-				if (Display.getDefault().isDisposed())
-					return;
-				for (IFile file : contents) {
-					TableItem tableItem = new TableItem(contentsTable, 0);
-					tableItem.setImage(labelProvider.getImage(file));
-					tableItem.setData(file);
-					for (int i = 0; i < contentsTable.getColumnCount(); i++) {
-						tableItem.setText(i, labelProvider.getText(file, i));
-					}
-				}
+			return contents;
+		}, CommonExecutorService.getExecutor());
+		fillTableFuture.thenAccept(contents -> {
+			getDisplay().asyncExec(() -> {
+				fillTable(container, contents);
 			});
 		});
-		selectTreeElement(container);
+	}
+
+	private void fillTable(IContainer container, List<IFile> contents) {
+		if (!contentsTable.isDisposed()) {
+			contentsTable.removeAll();
+		}
+		
+		isBusyTable = false;
+		contentsStackLayout.topControl = contentsTable;
+		contentsStackComposite.layout();
+		
+		labelLocation.setText(container.getPath().toString());
+		buttonLevelUp.setEnabled(container.getPath().getParent() != null ? true : false);
+		contentsTable.setData(container);
+		for (IFile file : contents) {
+			TableItem tableItem = new TableItem(contentsTable, 0);
+			tableItem.setImage(labelProvider.getImage(file));
+			tableItem.setData(file);
+			for (int i = 0; i < contentsTable.getColumnCount(); i++) {
+				tableItem.setText(i, labelProvider.getText(file, i));
+			}
+		}
 		tableSelectionChanged();
 		updateTotalCountLabel();
+		selectTreeElement(container);
 	}
 
 	private void selectTreeElement(IContainer container) {

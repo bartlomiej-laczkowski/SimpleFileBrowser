@@ -20,14 +20,13 @@ class NoPreviewLoader extends AbstractPreviewLoader<String> {
 
 	private String message;
 	private Label messageLabel;
-	private Composite preview;
 
 	public NoPreviewLoader(Composite parent) {
 		super(parent);
 	}
 
 	protected Control createControl(Composite parent) {
-		preview = new Composite(parent, SWT.NONE);
+		Composite preview = new Composite(parent, SWT.NONE);
 		preview.setLayout(new GridLayout());
 		messageLabel = new Label(preview, SWT.NONE);
 		messageLabel.setLayoutData(new GridData(SWT.CENTER, SWT.CENTER, true, true));

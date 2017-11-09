@@ -203,7 +203,7 @@ public class ClientConfigurationsDialog extends Dialog {
 		for (ClientConfiguration conf : ClientConfigurationManager.INSTANCE.getAllConfigurations()) {
 			TableItem tableItem = new TableItem(configurationsTable, SWT.NONE);
 			tableItem.setText(conf.getName());
-			tableItem.setData(conf.getId());
+			tableItem.setData(conf.getUniqueId());
 			tableItem.setImage(ImageRegistry.getImage(Images.IMG_FTP_SESSION));
 		}
 		configurationsTable.setSelection(0);
@@ -343,7 +343,7 @@ public class ClientConfigurationsDialog extends Dialog {
 		ClientConfigurationManager.INSTANCE.addConfiguration(sessionConfiguration);
 		TableItem newTableItem = new TableItem(configurationsTable, SWT.NONE);
 		newTableItem.setText(sessionConfiguration.getName());
-		newTableItem.setData(sessionConfiguration.getId());
+		newTableItem.setData(sessionConfiguration.getUniqueId());
 		newTableItem.setImage(ImageRegistry.getImage(Images.IMG_FTP_SESSION));
 		configurationsTable.setSelection(newTableItem);
 		sessionSelectionChanged();

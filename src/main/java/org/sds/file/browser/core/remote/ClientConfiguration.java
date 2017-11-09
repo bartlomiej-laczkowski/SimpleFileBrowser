@@ -11,7 +11,7 @@ public class ClientConfiguration {
 	public static final int ENCRYPTION_IMPLICIT_TLS_SSL = 1;
 	public static final int ENCRYPTION_EXPLICIT_TLS_SSL = 2;
 	
-	private final String id;
+	private final String uniqueId;
 	private final String name;
 	private final int encryptionType;
 	private final String host;
@@ -28,11 +28,11 @@ public class ClientConfiguration {
 		this.port = port;
 		this.user = user;
 		this.password = password;
-		this.id = UUID.randomUUID().toString();
+		this.uniqueId = UUID.randomUUID().toString();
 	}
 	
-	public String getId() {
-		return this.id;
+	public String getUniqueId() {
+		return this.uniqueId;
 	}
 
 	public String getName() {
@@ -58,6 +58,5 @@ public class ClientConfiguration {
 	public String getPassword() {
 		return password;
 	}
-	
 
 }

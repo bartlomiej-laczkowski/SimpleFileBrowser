@@ -7,7 +7,7 @@ import org.sds.file.browser.core.IFile;
 /**
  * Session viewer label provider.
  */
-public interface ISessionViewerLabelProvider {
+public interface ISessionLabelProvider {
 
 	public Image getImage(IContainer element, boolean expanded);
 	

@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.nio.file.Path;
 
 import org.eclipse.swt.SWT;
+import org.eclipse.swt.SWTException;
 import org.eclipse.swt.events.PaintEvent;
 import org.eclipse.swt.graphics.GC;
 import org.eclipse.swt.graphics.Image;
@@ -45,6 +46,8 @@ class ImagePreviewLoader extends AbstractPreviewLoader<ImageData> {
 				result = new ImageData(new ByteArrayInputStream(buffer.toByteArray()));
 			} catch (IOException e) {
 				// TODO logging
+			} catch (SWTException ex) {
+				// TODO logging
 			}
 		}
 
@@ -70,9 +73,9 @@ class ImagePreviewLoader extends AbstractPreviewLoader<ImageData> {
 		if (imageData == null)
 			return;
 		GC gc = event.gc;
-		float maxWidth = composite.getSize().x;
-		float maxHeight = composite.getSize().y;
-		Image originalImage = new Image(composite.getDisplay(), imageData);
+		float maxWidth = getControl().getSize().x;
+		float maxHeight = getControl().getSize().y;
+		Image originalImage = new Image(getControl().getDisplay(), imageData);
 		// Some math to check scale factor, etc.
 		float imgWidth = imageData.width;
 		float imgHeight = imageData.height;

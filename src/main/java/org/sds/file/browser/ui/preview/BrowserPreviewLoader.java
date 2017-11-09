@@ -47,8 +47,8 @@ class BrowserPreviewLoader extends AbstractPreviewLoader<StringBuffer> {
 		
 	}
 	
-	private StringBuffer textContent;
 	private Browser browser;
+	private StringBuffer textContent;
 
 	public BrowserPreviewLoader(Composite parent) {
 		super(parent);

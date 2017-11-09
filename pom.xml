@@ -5,61 +5,215 @@
 	<groupId>org.sds.file.browser</groupId>
 	<artifactId>org.sds.file.browser.simpleFileBrowser</artifactId>
 	<version>1.0.0-SNAPSHOT</version>
-	<packaging>pom</packaging>
+	<packaging>jar</packaging>
 
 	<name>fileBrowser</name>
 	<url>http://maven.apache.org</url>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
+		<libs.path>${project.basedir}/lib</libs.path>
 	</properties>
+
+	<profiles>
+		<profile>
+			<id>win-x86</id>
+			<activation>
+				<os>
+					<family>windows</family>
+				</os>
+				<property>
+					<name>sun.arch.data.model</name>
+					<value>32</value>
+				</property>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>org.eclipse.swt</groupId>
+					<artifactId>org.eclipse.swt.win.x86</artifactId>
+					<version>1.0</version>
+					<scope>system</scope>
+					<systemPath>${libs.path}/swt-win32-4.7.1.jar</systemPath>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile>
+			<id>win-x64</id>
+			<activation>
+				<os>
+					<family>windows</family>
+				</os>
+				<property>
+					<name>sun.arch.data.model</name>
+					<value>64</value>
+				</property>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>org.eclipse.swt</groupId>
+					<artifactId>org.eclipse.swt.win.x64</artifactId>
+					<version>1.0</version>
+					<scope>system</scope>
+					<systemPath>${libs.path}/swt-win64-4.7.1.jar</systemPath>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile>
+			<id>linux-x86</id>
+			<activation>
+				<os>
+					<family>unix</family>
+				</os>
+				<property>
+					<name>sun.arch.data.model</name>
+					<value>32</value>
+				</property>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>org.eclipse.swt</groupId>
+					<artifactId>org.eclipse.swt.linux.x86</artifactId>
+					<version>1.0</version>
+					<scope>system</scope>
+					<systemPath>${libs.path}/swt-linux32-4.7.1.jar</systemPath>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile>
+			<id>linux-x64</id>
+			<activation>
+				<os>
+					<family>unix</family>
+				</os>
+				<property>
+					<name>sun.arch.data.model</name>
+					<value>64</value>
+				</property>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>org.eclipse.swt</groupId>
+					<artifactId>org.eclipse.swt.linux.x64</artifactId>
+					<version>1.0</version>
+					<scope>system</scope>
+					<systemPath>${libs.path}/swt-win64-4.7.1.jar</systemPath>
+				</dependency>
+			</dependencies>
+		</profile>
+		<profile>
+			<id>osx-x64</id>
+			<activation>
+				<os>
+					<family>mac</family>
+				</os>
+				<property>
+					<name>sun.arch.data.model</name>
+					<value>64</value>
+				</property>
+			</activation>
+			<dependencies>
+				<dependency>
+					<groupId>org.eclipse.swt</groupId>
+					<artifactId>org.eclipse.swt.osx.x64</artifactId>
+					<version>1.0</version>
+					<scope>system</scope>
+					<systemPath>${libs.path}/swt-osx64-4.7.1.jar</systemPath>
+				</dependency>
+			</dependencies>
+		</profile>
+	</profiles>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.apache</groupId>
+			<artifactId>apache-commons-net</artifactId>
+			<version>1.0</version>
+			<scope>system</scope>
+			<systemPath>${libs.path}/commons-net-3.6.jar</systemPath>
+		</dependency>
+		<dependency>
+			<groupId>ch.qos.logback</groupId>
+			<artifactId>logback-classic</artifactId>
+			<version>1.2.3</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+			<version>23.0</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.hamcrest</groupId>
+			<artifactId>hamcrest-core</artifactId>
+			<version>1.3</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.mockito</groupId>
+			<artifactId>mockito-core</artifactId>
+			<version>1.9.5</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testng</groupId>
+			<artifactId>testng</artifactId>
+			<version>6.8.21</version>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
 
 	<build>
 		<plugins>
+			<plugin>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>3.0.2</version>
+				<executions>
+					<execution>
+						<id>default-jar</id>
+						<phase>none</phase>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<artifactId>maven-install-plugin</artifactId>
+				<version>2.5.2</version>
+				<executions>
+					<execution>
+						<id>default-install</id>
+						<phase>none</phase>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-antrun-plugin</artifactId>
 				<version>1.8</version>
 				<executions>
 					<execution>
-						<phase>generate-sources</phase>
+						<phase>package</phase>
 						<configuration>
 							<target>
-								<!-- compile -->
-								<property name="build.compiler" value="extJavac" />
-								<property name="ant.build.javac.source" value="1.8" />
-								<property name="ant.build.javac.target" value="1.8" />
-								<mkdir dir="build/classes" />
-								<path id="id.compile.classpath">
-									<fileset dir="./lib" includes="*.jar" />
-								</path>
-								<javac srcdir="src" destdir="build/classes"
-									includeantruntime="false" classpathref="id.compile.classpath" />
-								<copy todir="build/classes">
+								<!-- jarify -->
+								<copy todir="target/classes">
 									<fileset dir="src/main/java" excludes="**/*.java" />
 									<fileset dir="src/main/resources" excludes="**/*.java" />
 								</copy>
-								<!-- jarify -->
 								<taskdef name="swtjar" classname="org.swtjar.ant.SWTJarTask"
 									classpath="./lib/swtjar.jar" />
 								<!-- Package cross platform SWT Jar -->
-								<swtjar jarfile="./build/jar/SimpleFileBrowser.jar"
+								<swtjar jarfile="./target/SimpleFileBrowser.jar"
 									targetmainclass="org.sds.file.browser.ui.FileBrowserUI"
 									swtversion="4.7.1">
 									<!-- Application Classes -->
-									<fileset dir="./build/classes" excludes="**/*.java" />
+									<fileset dir="./target/classes" excludes="**/*.java" />
 									<!-- Library Classes -->
 									<zipfileset excludes="META-INF/*.MF" src="./lib/commons-net-3.6.jar" />
 									<!-- SWT Jars -->
 									<fileset dir="./lib" includes="swt-*-4.7.1.jar" />
 								</swtjar>
-								<!-- deploy -->
-								<mkdir dir="target" />
-								<copy todir="target">
-									<fileset dir="build/jar" />
-								</copy>
-								<delete dir="build" />
-								<delete dir="target/antrun" />
 							</target>
 						</configuration>
 						<goals>

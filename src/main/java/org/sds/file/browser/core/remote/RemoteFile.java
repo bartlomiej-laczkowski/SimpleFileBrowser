@@ -3,29 +3,23 @@ package org.sds.file.browser.core.remote;
 import java.nio.file.Path;
 
 import org.apache.commons.net.ftp.FTPFile;
-import org.sds.file.browser.core.IFile;
+import org.sds.file.browser.core.AbstractFile;
 
 /**
  * Remote file default implementation.
  */
-public class RemoteFile implements IFile {
+public class RemoteFile extends AbstractFile {
 
-	private FTPFile ftpFile;
-	private Path path;
+	private final FTPFile ftpFile;
 
 	public RemoteFile(FTPFile ftpFile, Path path) {
+		super(path);
 		this.ftpFile = ftpFile;
-		this.path = path;
 	}
 	
 	@Override
 	public String getName() {
 		return ftpFile.getName();
-	}
-
-	@Override
-	public Path getPath() {
-		return path;
 	}
 
 	@Override

@@ -15,6 +15,7 @@ import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Control;
+import org.sds.file.browser.core.CommonExecutorService;
 import org.sds.file.browser.core.ICancellable;
 import org.sds.file.browser.core.IFile;
 import org.sds.file.browser.core.ISession;
@@ -35,12 +36,12 @@ public class PreviewViewer extends Composite {
 	 */
 	private class LoadPreviewTask implements Runnable, ICancellable {
 
-		private IFile file;
+		private final IFile file;
 		private volatile boolean isCanceled;
 
 		public LoadPreviewTask(IFile file) {
 			this.file = file;
-			PreviewExecutor.INSTANCE.submit(this);
+			CommonExecutorService.getExecutor().execute(this);
 			this.isCanceled = false;
 		}
 
@@ -90,7 +91,7 @@ public class PreviewViewer extends Composite {
 
 	private final class PreviewStateInfo extends Composite {
 
-		private CLabel info;
+		private final CLabel info;
 
 		public PreviewStateInfo(Composite parent) {
 			super(parent, SWT.NONE);
@@ -122,15 +123,16 @@ public class PreviewViewer extends Composite {
 	}
 
 	private final StackLayout stackLayout;
+	private final Map<PreviewType, AbstractPreviewLoader<?>> printers;
+	private final ISession session;
+	private final PreviewStateInfo previewStateInfo;
 	private LoadPreviewTask loadPreviewTask;
-	private Map<PreviewType, AbstractPreviewLoader<?>> printers;
-	private PreviewStateInfo previewStateInfo;
-	private ISession session;
 
 	public PreviewViewer(Composite parent, ISession session) {
 		super(parent, SWT.BORDER);
 		this.session = session;
 		this.stackLayout = new StackLayout();
+		this.printers = new HashMap<>();
 		setLayout(stackLayout);
 		previewStateInfo = new PreviewStateInfo(this);
 		stackLayout.topControl = previewStateInfo;
@@ -140,21 +142,20 @@ public class PreviewViewer extends Composite {
 	}
 
 	public void preview(final IFile file) {
+		// Cancel ongoing load preview task if there is any
+		if (loadPreviewTask != null) {
+			loadPreviewTask.cancel();
+		}
 		if (file == null) {
 			previewStateInfo.showSelectFile();
 			return;
 		}
 		previewStateInfo.showLoading();
-		// Cancel ongoing load preview task if there is any
-		if (loadPreviewTask != null) {
-			loadPreviewTask.cancel();
-		}
 		// Trigger new load preview task
 		loadPreviewTask = new LoadPreviewTask(file);
 	}
 
 	private void registerPrinters() {
-		printers = new HashMap<>();
 		printers.put(IMAGE, new ImagePreviewLoader(this));
 		printers.put(TEXT, new TextPreviewLoader(this));
 		printers.put(BROWSER, new BrowserPreviewLoader(this));

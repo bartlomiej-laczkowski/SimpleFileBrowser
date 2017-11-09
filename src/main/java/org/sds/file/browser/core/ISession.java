@@ -69,13 +69,13 @@ public interface ISession {
 	 * 
 	 * @return startup status 
 	 */
-	Status startup(); // Should return some status
+	Status startup();
 
 	/**
 	 * Shutdowns browsing session and returns status of this operation.
 	 * 
 	 * @return shutdown status 
 	 */
-	Status shutdown(); // Should return some status
+	Status shutdown();
 
 }

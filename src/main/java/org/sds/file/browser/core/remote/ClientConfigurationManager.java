@@ -15,7 +15,7 @@ public enum ClientConfigurationManager {
 	private final Map<String, ClientConfiguration> configurations = new HashMap<>();
 
 	public void addConfiguration(ClientConfiguration configuration) {
-		configurations.put(configuration.getId(), configuration);
+		configurations.put(configuration.getUniqueId(), configuration);
 	}
 
 	public void removeConfiguration(String configurationId) {

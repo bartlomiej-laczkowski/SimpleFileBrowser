@@ -3,29 +3,23 @@ package org.sds.file.browser.core.local;
 import java.io.File;
 import java.nio.file.Path;
 
-import org.sds.file.browser.core.IFile;
+import org.sds.file.browser.core.AbstractFile;
 
 /**
  * Local session file implementation.
  */
-public class LocalFile implements IFile {
+public class LocalFile extends AbstractFile {
 
-	private Path path;
-	private File file;
+	private final File file;
 
 	public LocalFile(Path path) {
-		this.path = path;
+		super(path);
 		this.file = path.toFile();
 	}
 	
 	@Override
 	public String getName() {
-		return path.getFileName().toString();
-	}
-
-	@Override
-	public Path getPath() {
-		return path;
+		return file.getName();
 	}
 
 	@Override
